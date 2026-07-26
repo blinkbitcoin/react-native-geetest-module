@@ -41,6 +41,8 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void setUp() {
+        // TODO: getCurrentActivity() may be null here. No mechanical fix — the SDK
+        // needs a real activity. See issue 3 in KNOWN_ISSUES.md.
         gt3GeetestUtils = new GT3GeetestUtils(getCurrentActivity());
 
         // Configure the bean file
@@ -130,6 +132,8 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void tearDown() {
+        // TODO: crashes when no activity is attached — the guard below is one line
+        // too late. Fix in KNOWN_ISSUES.md, issue 1.
         getCurrentActivity().runOnUiThread(() -> {
             if (gt3GeetestUtils != null) {
                 gt3GeetestUtils.destory();
@@ -142,6 +146,10 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void handleRegisteredGeeTestCaptcha(String params) {
         if (!TextUtils.isEmpty(params)) {
+            // TODO: this catch does NOT cover the runnable below. @ReactMethod runs
+            // off the UI thread, so runOnUiThread posts and the body executes after
+            // this frame returns — startCustomFlow() on a null handle crashes
+            // uncaught. Fix in KNOWN_ISSUES.md, issue 2.
             try {
                 JSONObject jsonObject = new JSONObject(params);
                 getCurrentActivity().runOnUiThread(() -> {
