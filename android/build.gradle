@@ -40,6 +40,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    testOptions {
+        unitTests {
+            // Required by Robolectric to resolve the merged manifest and resources
+            includeAndroidResources = true
+        }
+    }
 }
 
 repositories {
@@ -56,4 +62,8 @@ dependencies {
     //noinspection GradleDynamicVersion
     implementation "com.facebook.react:react-native:+"  // From node_modules
     implementation 'com.geetest.sensebot:sensebot:4.3.5.2'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
 }
