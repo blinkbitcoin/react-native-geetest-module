@@ -38,6 +38,26 @@ import java.util.concurrent.atomic.AtomicReference;
  * All three share a shape — a reference dereferenced on a path where it can
  * legitimately be null — and all three crashed in ordinary use before the
  * guards were added.
+ *
+ * Two traps to know about before adding tests here.
+ *
+ * Robolectric runs tests on the main thread, so calling a {@code @ReactMethod}
+ * directly from a test makes an {@code Activity.runOnUiThread} hop execute its body
+ * inline, inside the caller's frame. That is not how the bridge invokes it, and it
+ * hides crashes: the try/catch that handleRegisteredGeeTestCaptcha() used to wrap
+ * around its hop swallowed the exact NullPointerException under test, so a direct
+ * call passed against the unfixed module. That was confirmed by trying it, not
+ * assumed. {@link #callFromBridgeThread(Runnable)} exists for this reason — drive
+ * the module from another thread, then drain.
+ *
+ * {@code UiThreadUtil.runOnUiThread} always posts, even when the caller is already
+ * on the UI thread, unlike {@code Activity.runOnUiThread}. Nothing inside either
+ * runnable has happened until {@link #drainMainLooper()}, on any thread, in any
+ * test here.
+ *
+ * And always confirm a new test fails without its fix. Every guard in this module
+ * is one a test can accidentally pass around — 21974ae removed one that could not
+ * fail.
  */
 @RunWith(RobolectricTestRunner.class)
 public class GeetestModuleModuleTest {

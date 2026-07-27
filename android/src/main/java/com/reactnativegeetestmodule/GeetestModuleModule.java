@@ -43,8 +43,13 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void setUp() {
-        // TODO: getCurrentActivity() may be null here. No mechanical fix — the SDK
-        // needs a real activity. See issue 3 in KNOWN_ISSUES.md.
+        // TODO: getCurrentActivity() may be null here, and unlike the null paths in
+        // tearDown() and handleRegisteredGeeTestCaptcha() this one has no mechanical
+        // fix. The SDK needs a real activity to build the captcha dialog, so a null
+        // check would produce a module that reports success but can never show a
+        // captcha — a silent dead end traded for a loud crash. Choosing between
+        // failing loudly, deferring initialisation until an activity attaches, and
+        // surfacing an error to JS is a product decision, not a null check.
         gt3GeetestUtils = new GT3GeetestUtils(getCurrentActivity());
 
         // Configure the bean file
