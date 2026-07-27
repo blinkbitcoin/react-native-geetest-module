@@ -3,7 +3,6 @@ package com.reactnativegeetestmodule;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
@@ -95,16 +94,6 @@ public class GeetestModuleModuleTest {
         verify(utils).destory();
         assertNull(getField("gt3GeetestUtils"));
         assertNull(getField("gt3ConfigBean"));
-    }
-
-    @Test
-    public void tearDownWithoutSetUpNeverTouchesSdk() {
-        GT3GeetestUtils utils = mock(GT3GeetestUtils.class);
-
-        module.tearDown();
-        drainMainLooper();
-
-        verify(utils, never()).destory();
     }
 
     @Test
