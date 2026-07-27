@@ -9,6 +9,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.module.annotations.ReactModule;
 
@@ -18,6 +19,7 @@ import com.geetest.sdk.GT3ErrorBean;
 import com.geetest.sdk.GT3GeetestUtils;
 import com.geetest.sdk.GT3Listener;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import javax.annotation.Nullable;
@@ -132,9 +134,11 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void tearDown() {
-        // TODO: crashes when no activity is attached — the guard below is one line
-        // too late. Fix in KNOWN_ISSUES.md, issue 1.
-        getCurrentActivity().runOnUiThread(() -> {
+        // Hop through the bridge helper rather than getCurrentActivity(): teardown
+        // can legitimately run with no activity attached (backgrounded mid-captcha,
+        // or racing a screen unmount), and the SDK still has to be destroyed then or
+        // the captcha dialog leaks.
+        UiThreadUtil.runOnUiThread(() -> {
             if (gt3GeetestUtils != null) {
                 gt3GeetestUtils.destory();
             }
@@ -145,22 +149,31 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void handleRegisteredGeeTestCaptcha(String params) {
-        if (!TextUtils.isEmpty(params)) {
-            // TODO: this catch does NOT cover the runnable below. @ReactMethod runs
-            // off the UI thread, so runOnUiThread posts and the body executes after
-            // this frame returns — startCustomFlow() on a null handle crashes
-            // uncaught. Fix in KNOWN_ISSUES.md, issue 2.
-            try {
-                JSONObject jsonObject = new JSONObject(params);
-                getCurrentActivity().runOnUiThread(() -> {
-                    gt3GeetestUtils.startCustomFlow();
-                    gt3ConfigBean.setApi1Json(jsonObject);
-                    gt3GeetestUtils.getGeetest();
-                });
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        if (TextUtils.isEmpty(params)) {
+            return;
         }
+
+        // Parse before the hop. @ReactMethod runs on the NativeModules thread, so
+        // runOnUiThread posts the runnable rather than running it inline: a catch
+        // wrapped around the hop returns long before the body executes and cannot
+        // see anything it throws. Do not re-wrap this — that is the broken version.
+        final JSONObject jsonObject;
+        try {
+            jsonObject = new JSONObject(params);
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        UiThreadUtil.runOnUiThread(() -> {
+            // Reachable before setUp() and after tearDown() cleared the handles.
+            if (gt3GeetestUtils == null || gt3ConfigBean == null) {
+                return;
+            }
+            gt3GeetestUtils.startCustomFlow();
+            gt3ConfigBean.setApi1Json(jsonObject);
+            gt3GeetestUtils.getGeetest();
+        });
     }
 
 
