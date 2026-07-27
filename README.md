@@ -5,13 +5,13 @@ A React Native Geetest module for gt3 that can protect server endpoints.
 ## Installation
 
 ```sh
-yarn add react-native-geetest-module
+yarn add @blinkbitcoin/react-native-geetest-module
 ```
 
 or
 
 ```sh
-npm install react-native-geetest-module
+npm install @blinkbitcoin/react-native-geetest-module
 ```
 
 then
@@ -52,7 +52,7 @@ Set up the module in the component that uses Geetest
 ```js
 import * as React from "react"
 import {NativeModules, NativeEventEmitter} from "react-native"
-import GeetestModule from "react-native-geetest-module";
+import GeetestModule from "@blinkbitcoin/react-native-geetest-module";
 
 // ...
 
