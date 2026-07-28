@@ -21,6 +21,7 @@ import android.os.Looper;
 import com.facebook.react.bridge.JavaOnlyMap;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.geetest.sdk.GT3ConfigBean;
+import com.geetest.sdk.GT3ErrorBean;
 import com.geetest.sdk.GT3GeetestUtils;
 import com.geetest.sdk.GT3Listener;
 
@@ -285,6 +286,22 @@ public class GeetestModuleModuleTest {
 
         verify(utils).dismissGeetestDialog();
         verify(module).sendEvent(any(), eq("GT3-->onDialogResult-->"), any());
+    }
+
+    /** onClosed forwards the close reason to JS. */
+    @Test
+    public void onClosedForwardsCloseReason() {
+        module.createListener().onClosed(2);
+
+        verify(module).sendEvent(any(), eq("GT3-->onClosed-->"), any());
+    }
+
+    /** onFailed forwards the SDK error to JS. */
+    @Test
+    public void onFailedForwardsError() {
+        module.createListener().onFailed(mock(GT3ErrorBean.class));
+
+        verify(module).sendEvent(any(), eq("GT3-->onFailed-->"), any());
     }
 
     @Test
