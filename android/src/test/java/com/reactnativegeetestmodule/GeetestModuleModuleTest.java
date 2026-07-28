@@ -2,8 +2,14 @@ package com.reactnativegeetestmodule;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -12,9 +18,11 @@ import static org.robolectric.Shadows.shadowOf;
 import android.app.Activity;
 import android.os.Looper;
 
+import com.facebook.react.bridge.JavaOnlyMap;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.geetest.sdk.GT3ConfigBean;
 import com.geetest.sdk.GT3GeetestUtils;
+import com.geetest.sdk.GT3Listener;
 
 import org.json.JSONObject;
 import org.junit.Before;
@@ -32,12 +40,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Covers the null dereferences in {@link GeetestModuleModule}: the guard in
- * tearDown(), the activity it used to reach the UI thread through, and the SDK
- * handles handleRegisteredGeeTestCaptcha() touches.
+ * tearDown(), the activity it used to reach the UI thread through, the SDK handles
+ * handleRegisteredGeeTestCaptcha() touches, and the one onDialogResult() touches from
+ * the SDK callback side. Where a guard aborts the flow, the tests also assert the
+ * onFailed event that has to reach JS in its place.
  *
- * All three share a shape — a reference dereferenced on a path where it can
- * legitimately be null — and all three crashed in ordinary use before the
- * guards were added.
+ * They share a shape — a reference dereferenced on a path where it can legitimately
+ * be null — and each crashed in ordinary use before the guards were added.
  *
  * Two traps to know about before adding tests here.
  *
@@ -75,7 +84,10 @@ public class GeetestModuleModuleTest {
         // lifecycle API the bridge itself uses rather than by stubbing.
         reactContext.onHostResume(activityController.get());
 
-        module = new GeetestModuleModule(reactContext);
+        // Spied to stub the two native seams off-device and verify which event reaches JS.
+        module = spy(new GeetestModuleModule(reactContext));
+        doAnswer(invocation -> new JavaOnlyMap()).when(module).createMap();
+        doNothing().when(module).sendEvent(any(), anyString(), any());
     }
 
     /**
@@ -167,10 +179,10 @@ public class GeetestModuleModuleTest {
 
     /**
      * The same crash from the other direction: tearDown() clears the handles, and a
-     * captcha already in flight lands afterwards.
+     * captcha already in flight lands afterwards. It must emit onFailed, not return silently.
      */
     @Test
-    public void captchaAfterTearDownDoesNotCrashTheUiThread() {
+    public void captchaAfterTearDownEmitsFailureWithoutCrashing() {
         setField("gt3GeetestUtils", mock(GT3GeetestUtils.class));
         setField("gt3ConfigBean", mock(GT3ConfigBean.class));
 
@@ -180,6 +192,8 @@ public class GeetestModuleModuleTest {
         callFromBridgeThread(() -> module.handleRegisteredGeeTestCaptcha("{\"success\":1}"));
 
         drainMainLooper();
+
+        verify(module).sendEvent(any(), eq("GT3-->onFailed-->"), any());
     }
 
     /**
@@ -207,10 +221,10 @@ public class GeetestModuleModuleTest {
 
     /**
      * Parsing moved ahead of the thread hop so the catch around it is meaningful.
-     * Malformed input must still be swallowed there, without reaching the SDK.
+     * Malformed input must not reach the SDK, and must emit onFailed, not return silently.
      */
     @Test
-    public void captchaWithMalformedJsonDoesNotTouchTheSdk() {
+    public void captchaWithMalformedJsonEmitsFailureWithoutTouchingTheSdk() {
         GT3GeetestUtils utils = mock(GT3GeetestUtils.class);
         GT3ConfigBean configBean = mock(GT3ConfigBean.class);
         setField("gt3GeetestUtils", utils);
@@ -221,6 +235,7 @@ public class GeetestModuleModuleTest {
         drainMainLooper();
 
         verifyNoInteractions(utils, configBean);
+        verify(module).sendEvent(any(), eq("GT3-->onFailed-->"), any());
     }
 
     @Test
@@ -235,6 +250,41 @@ public class GeetestModuleModuleTest {
         drainMainLooper();
 
         verifyNoInteractions(utils, configBean);
+    }
+
+    /**
+     * The PR-title crash from the callback side: onDialogResult() lands after tearDown()
+     * nulled the handle. Reverting the guard throws here; the result must still reach JS.
+     */
+    @Test
+    public void onDialogResultAfterTearDownForwardsResultWithoutCrashing() {
+        setField("gt3GeetestUtils", mock(GT3GeetestUtils.class));
+        setField("gt3ConfigBean", mock(GT3ConfigBean.class));
+
+        GT3Listener listener = module.createListener();
+
+        module.tearDown();
+        drainMainLooper();
+
+        listener.onDialogResult("{\"result\":\"ok\"}");
+
+        verify(module).sendEvent(any(), eq("GT3-->onDialogResult-->"), any());
+    }
+
+    /**
+     * The guard must not have turned onDialogResult() into a no-op: with the SDK
+     * present the dialog is still dismissed and the result still forwarded.
+     */
+    @Test
+    public void onDialogResultDismissesDialogAndForwardsResultWhenSdkPresent() {
+        GT3GeetestUtils utils = mock(GT3GeetestUtils.class);
+        setField("gt3GeetestUtils", utils);
+        setField("gt3ConfigBean", mock(GT3ConfigBean.class));
+
+        module.createListener().onDialogResult("{\"result\":\"ok\"}");
+
+        verify(utils).dismissGeetestDialog();
+        verify(module).sendEvent(any(), eq("GT3-->onDialogResult-->"), any());
     }
 
     @Test

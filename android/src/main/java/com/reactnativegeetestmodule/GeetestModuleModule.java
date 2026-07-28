@@ -1,6 +1,7 @@
 package com.reactnativegeetestmodule;
 
 import android.text.TextUtils;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -65,7 +66,13 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
         // Set the timeout for webview request after user finishing the CAPTCHA verification. The default is 10,000
         gt3ConfigBean.setWebviewTimeout(10000);
         // Set callback listener
-        gt3ConfigBean.setListener(new GT3Listener() {
+        gt3ConfigBean.setListener(createListener());
+        gt3GeetestUtils.init(gt3ConfigBean);
+    }
+
+    /** Extracted to a seam so tests can drive the callbacks without the SDK setUp() builds. */
+    GT3Listener createListener() {
+        return new GT3Listener() {
             /**
              * CAPTCHA loading is completed
              * @param duration Loading duration and version info，in JSON format
@@ -86,8 +93,12 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
              */
             @Override
             public void onDialogResult(String result) {
-                gt3GeetestUtils.dismissGeetestDialog();
-                WritableMap params = Arguments.createMap();
+                // Guard a local copy: tearDown() can null the field between check and call.
+                GT3GeetestUtils utils = gt3GeetestUtils;
+                if (utils != null) {
+                    utils.dismissGeetestDialog();
+                }
+                WritableMap params = createMap();
                 params.putString("result", result);
                 sendEvent(getReactApplicationContext(), "GT3-->onDialogResult-->", params);
             }
@@ -105,7 +116,7 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
              */
             @Override
             public void onClosed(int num) {
-                WritableMap params = Arguments.createMap();
+                WritableMap params = createMap();
                 params.putInt("closed", num);
                 sendEvent(getReactApplicationContext(), "GT3-->onClosed-->", params);
             }
@@ -123,7 +134,7 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
              */
             @Override
             public void onFailed(GT3ErrorBean errorBean) {
-                WritableMap params = Arguments.createMap();
+                WritableMap params = createMap();
                 params.putString("error", errorBean.toString());
                 sendEvent(getReactApplicationContext(), "GT3-->onFailed-->", params);
             }
@@ -133,8 +144,7 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
              */
             @Override
             public void onButtonClick() {}
-        });
-        gt3GeetestUtils.init(gt3ConfigBean);
+        };
     }
 
     @ReactMethod
@@ -166,13 +176,16 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
         try {
             jsonObject = new JSONObject(params);
         } catch (JSONException e) {
-            e.printStackTrace();
+            // Void method: report the parse failure on the event channel or the caller hangs.
+            Log.e(NAME, "Malformed API1 registration payload", e);
+            emitFailure("Malformed API1 registration payload");
             return;
         }
 
         UiThreadUtil.runOnUiThread(() -> {
             // Reachable before setUp() and after tearDown() cleared the handles.
             if (gt3GeetestUtils == null || gt3ConfigBean == null) {
+                emitFailure("Captcha triggered before setUp() or after tearDown()");
                 return;
             }
             gt3GeetestUtils.startCustomFlow();
@@ -181,10 +194,21 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
         });
     }
 
+    /** Report a failure on the channel JS already listens on, so an aborted flow isn't silent. */
+    private void emitFailure(String reason) {
+        WritableMap params = createMap();
+        params.putString("error", reason);
+        sendEvent(getReactApplicationContext(), "GT3-->onFailed-->", params);
+    }
 
-    private void sendEvent(ReactContext reactContext,
-                           String eventName,
-                           @Nullable WritableMap params) {
+    /** Seam: the native map needs the RN bridge, so tests stub this to a JVM-only map. */
+    WritableMap createMap() {
+        return Arguments.createMap();
+    }
+
+    void sendEvent(ReactContext reactContext,
+                   String eventName,
+                   @Nullable WritableMap params) {
         reactContext
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                 .emit(eventName, params);
