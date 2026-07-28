@@ -10,7 +10,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.robolectric.Shadows.shadowOf;
@@ -115,7 +114,7 @@ public class GeetestModuleModuleTest {
         module.tearDown();
         drainMainLooper();
 
-        verify(utils, times(1)).destory();
+        verify(utils).destory();
         assertNull(getField("gt3GeetestUtils"));
     }
 
