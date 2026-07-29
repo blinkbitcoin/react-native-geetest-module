@@ -1,0 +1,25 @@
+name: "Tests"
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Run the Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Install dependencies inside nix develop
+        run: nix develop -c pnpm install
+
+      - name: Run all tests
+        run: nix develop -c pnpm test
