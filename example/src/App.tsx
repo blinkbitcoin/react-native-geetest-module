@@ -11,7 +11,7 @@ import {
 import Toast from "react-native-root-toast"
 import axios from "axios"
 
-import GeetestModule from "react-native-geetest-module"
+import GeetestModule from "@blinkbitcoin/react-native-geetest-module"
 
 type GeetestValidationData = {
   geetestChallenge: string

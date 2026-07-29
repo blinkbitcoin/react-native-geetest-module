@@ -47,6 +47,16 @@ Remember to add tests for your change if possible. Run the unit tests by:
 pnpm test
 ```
 
+That covers the JavaScript. The Android module has its own Robolectric suite, run
+from `android/`:
+
+```sh
+./gradlew test
+```
+
+It needs JDK 17 on `JAVA_HOME` — Gradle 7.6.4 and AGP 7.4.2 do not run on 21. Both
+suites run in CI on pull requests to `main`.
+
 To edit the Objective-C files, open `example/ios/GeetestModuleExample.xcworkspace` in XCode and find the source files at `Pods > Development Pods > react-native-geetest-module`.
 
 To edit the Kotlin files, open `example/android` in Android studio and find the source files at `reactnativegeetestmodule` under `Android`.
