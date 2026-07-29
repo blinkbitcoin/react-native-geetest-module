@@ -1,5 +1,5 @@
 {
-  "name": "@galoymoney/react-native-geetest-module",
+  "name": "@blinkbitcoin/react-native-geetest-module",
   "version": "0.1.5",
   "description": "A React Native GeeTest module for gt3 that can protect server endpoints.",
   "main": "lib/commonjs/index",
@@ -36,13 +36,13 @@
     "ios",
     "android"
   ],
-  "repository": "https://github.com/GaloyMoney/react-native-geetest-module",
-  "author": "GaloyMoney <jb@galoy.io> (https://galoy.io/)",
+  "repository": "https://github.com/blinkbitcoin/react-native-geetest-module",
+  "author": "Blink <team@blink.sv> (https://blink.sv/)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/GaloyMoney/react-native-geetest-module/issues"
+    "url": "https://github.com/blinkbitcoin/react-native-geetest-module/issues"
   },
-  "homepage": "https://github.com/GaloyMoney/react-native-geetest-module#readme",
+  "homepage": "https://github.com/blinkbitcoin/react-native-geetest-module#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
