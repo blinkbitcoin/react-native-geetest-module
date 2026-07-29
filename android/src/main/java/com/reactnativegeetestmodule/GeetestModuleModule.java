@@ -102,7 +102,7 @@ public class GeetestModuleModule extends ReactContextBaseJavaModule {
             }
 
             /**
-             * Verfication succeeds
+             * Verification succeeds
              * @param result
              */
             @Override
