@@ -1,0 +1,6 @@
+[files]
+extend-exclude = ["*.pbxproj"]
+
+[default.extend-words]
+# The GeeTest GT3 SDK's cleanup method is literally named destory()
+destory = "destory"

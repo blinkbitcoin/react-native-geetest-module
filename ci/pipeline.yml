@@ -1,0 +1,175 @@
+#@ load("@ytt:data", "data")
+
+#@ load("vendor/pipeline-fragments.lib.yml",
+#@   "nodejs_check_code",
+#@   "nodejs_audit",
+#@   "build_edge_image",
+#@   "repo_resource",
+#@   "nodejs_deps_resource",
+#@   "install_nodejs_deps",
+#@   "open_charts_pr",
+#@   "deps_version_resource",
+#@   "bundled_deps_resource",
+#@   "gh_release_resource",
+#@   "charts_repo_bot_branch",
+#@   "version_resource",
+#@   "versioned_image_resource",
+#@   "charts_repo_resource",
+#@   "release_task_image_config",
+#@   "edge_image_resource",
+#@   "public_docker_registry",
+#@   "pipeline_tasks_resource",
+#@   "nodejs_task_image_config",
+#@   "slack_resource",
+#@   "gcr_resource_type",
+#@   "slack_resource_type",
+#@   "npm_resource_type")
+
+
+#@ def test():
+name: test
+serial: true
+plan:
+- in_parallel:
+  - { get: repo, trigger: true }
+  - { get: bundled-deps, trigger: true }
+  - { get: pipeline-tasks }
+- task: test
+  config:
+    platform: linux
+    image_resource: #@ nodejs_task_image_config()
+    inputs:
+    - name: bundled-deps
+    - name: pipeline-tasks
+    - name: repo
+    run:
+      path: pipeline-tasks/ci/tasks/test.sh
+#@ end
+
+#@ def build():
+name: build
+serial: true
+plan:
+- in_parallel:
+  - { get: repo, trigger: true }
+  - { get: bundled-deps, trigger: true }
+  - { get: pipeline-tasks }
+- task: build
+  config:
+    platform: linux
+    image_resource: #@ nodejs_task_image_config()
+    inputs:
+    - name: bundled-deps
+    - name: pipeline-tasks
+    - name: repo
+    outputs:
+    - name: repo
+    run:
+      path: pipeline-tasks/ci/tasks/build.sh
+#@ end
+
+jobs:
+- #@ nodejs_check_code()
+- #@ nodejs_audit()
+- #@ install_nodejs_deps(pckgMgr="pnpm")
+- #@ test()
+- #@ build()
+
+- name: release
+  serial: true
+  plan:
+  - in_parallel:
+    - get: repo
+      passed:
+      - check-code
+      - test
+      - build
+      - audit
+    - get: bundled-deps
+    - get: pipeline-tasks
+    - get: version
+  - task: prep-release
+    config:
+      platform: linux
+      image_resource: #@ release_task_image_config()
+      inputs:
+      - name: pipeline-tasks
+      - name: repo
+      - name: version
+      outputs:
+      - name: version
+      - name: artifacts
+      run:
+        path: pipeline-tasks/ci/vendor/tasks/prep-release-src.sh
+  - task: build
+    config:
+      platform: linux
+      image_resource: #@ nodejs_task_image_config()
+      inputs:
+      - name: bundled-deps
+      - name: pipeline-tasks
+      - name: repo
+      outputs:
+      - name: repo
+      run:
+        path: pipeline-tasks/ci/tasks/build.sh
+  - task: update-repo
+    config:
+      platform: linux
+      image_resource: #@ nodejs_task_image_config()
+      inputs:
+      - name: pipeline-tasks
+      - name: repo
+      - name: version
+      outputs:
+      - name: repo
+      run:
+        path: pipeline-tasks/ci/tasks/update-repo.sh
+  - put: repo-out
+    params:
+      tag: artifacts/gh-release-tag
+      repository: repo
+      rebase: true
+  - put: gh-release
+    params:
+      name: artifacts/gh-release-name
+      tag: artifacts/gh-release-tag
+      body: artifacts/gh-release-notes.md
+  - put: npm-release
+    params:
+      path: repo
+      version: version/version
+      public: true
+  - put: version
+    params:
+      file: version/version
+
+
+resources:
+- #@ repo_resource(webhook=True)
+- #@ nodejs_deps_resource(pckgMgr="pnpm")
+- #@ pipeline_tasks_resource(webhook=True)
+- #@ deps_version_resource()
+- #@ bundled_deps_resource()
+- #@ version_resource()
+- #@ gh_release_resource()
+- #@ slack_resource()
+- name: repo-out
+  type: git
+  source:
+    uri: #@ data.values.git_uri
+    branch: #@ data.values.git_branch
+    private_key: #@ data.values.github_private_key
+- name: npm-release
+  type: npm
+  source:
+    package: react-native-geetest-module
+    scope: blinkbitcoin
+    registry:
+      uri: https://registry.npmjs.org/
+      token: #@ data.values.npm_token
+
+resource_types:
+- #@ gcr_resource_type()
+- #@ slack_resource_type()
+- #@ npm_resource_type()

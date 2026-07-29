@@ -1,0 +1,22 @@
+#@data/values
+---
+git_uri: git@github.com:blinkbitcoin/react-native-geetest-module.git
+git_branch: main
+github_private_key: ((github-blinkbitcoin.private_key))
+github_token: ((github-blinkbitcoin.api_token))
+
+docker_registry: us.gcr.io/galoy-org
+docker_registry_user: ((docker-creds.username))
+docker_registry_password: ((docker-creds.password))
+
+artifacts_bucket_name: ((staging-gcp-creds.bucket_name))
+staging_inception_creds: ((staging-gcp-creds.creds_json))
+
+git_version_branch: version
+gh_org: blinkbitcoin
+gh_repository: react-native-geetest-module
+
+slack_channel: galoy-client-github
+slack_webhook_url: ((addons-slack.api_url))
+
+npm_token: ((npm-blink.token))
