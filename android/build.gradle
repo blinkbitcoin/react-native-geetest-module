@@ -14,10 +14,16 @@ buildscript {
 apply plugin: 'com.android.library'
 
 def safeExtGet(prop, fallback) {
-    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+    if (rootProject.ext.has(prop)) {
+        return rootProject.ext.get(prop)
+    }
+
+    def unprefixedProp = prop.replaceFirst('GeetestModule_', '')
+    rootProject.ext.has(unprefixedProp) ? rootProject.ext.get(unprefixedProp) : fallback
 }
 
 android {
+    namespace 'com.reactnativegeetestmodule'
     compileSdkVersion safeExtGet('GeetestModule_compileSdkVersion', 34)
     buildToolsVersion safeExtGet('GeetestModule_buildToolsVersion', '34.0.0')
     defaultConfig {
@@ -37,8 +43,8 @@ android {
         disable 'GradleCompatible'
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     testOptions {
         unitTests {
@@ -59,8 +65,12 @@ repositories {
 }
 
 dependencies {
-    //noinspection GradleDynamicVersion
-    implementation "com.facebook.react:react-native:+"  // From node_modules
+    if (project == rootProject) {
+        // Standalone library tests do not apply React Native's Gradle plugin.
+        implementation "com.facebook.react:react-native:+"
+    } else {
+        implementation "com.facebook.react:react-android"
+    }
     implementation 'com.geetest.sensebot:sensebot:4.3.5.2'
 
     testImplementation 'junit:junit:4.13.2'
